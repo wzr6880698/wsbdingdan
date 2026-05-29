@@ -11,6 +11,7 @@ st.set_page_config(page_title="未匹配订单明细提取工具", layout="wide"
 st.title("📊 未匹配订单明细提取 & 状态筛选 & 金额计算")
 st.markdown("功能：从明细表中提取**未在报送表中出现**的订单明细 → 剔除无效状态 → 计算订单金额 → 导出结果")
 
+
 # --------------------------
 # 工具函数
 # --------------------------
@@ -19,7 +20,7 @@ def find_order_column(df, default_text="订单号"):
     columns = [str(col).strip() for col in df.columns]
     keywords = ["订单号", "订单编号", "订单ID", "order no", "order id", "orderno", "orderid"]
     match_scores = []
-    
+
     for col in columns:
         score = 0
         col_lower = col.lower()
@@ -29,16 +30,18 @@ def find_order_column(df, default_text="订单号"):
             if col_lower == kw:
                 score += 20
         match_scores.append((col, score))
-    
+
     match_scores.sort(key=lambda x: x[1], reverse=True)
     best_col = match_scores[0][0] if match_scores else columns[0]
     return best_col
+
 
 def clean_order_no(value):
     """清洗订单号：去空格、转字符串"""
     if pd.isna(value):
         return ""
     return str(value).strip()
+
 
 # --------------------------
 # 1. 文件上传
@@ -73,14 +76,16 @@ if sum_df is not None and detail_df is not None:
         sum_order_col = st.selectbox(
             "报送表订单号列",
             options=sum_df.columns.tolist(),
-            index=sum_df.columns.tolist().index(find_order_column(sum_df)) if find_order_column(sum_df) in sum_df.columns else 0
+            index=sum_df.columns.tolist().index(find_order_column(sum_df)) if find_order_column(
+                sum_df) in sum_df.columns else 0
         )
 
     with col2:
         detail_order_col = st.selectbox(
             "明细表订单号列",
             options=detail_df.columns.tolist(),
-            index=detail_df.columns.tolist().index(find_order_column(detail_df)) if find_order_column(detail_df) in detail_df.columns else 0
+            index=detail_df.columns.tolist().index(find_order_column(detail_df)) if find_order_column(
+                detail_df) in detail_df.columns else 0
         )
 
     # --------------------------
@@ -149,7 +154,7 @@ if sum_df is not None and detail_df is not None:
         # 转数值，避免错误
         final_df[qty_col] = pd.to_numeric(final_df[qty_col], errors="coerce").fillna(0)
         final_df[price_col] = pd.to_numeric(final_df[price_col], errors="coerce").fillna(0)
-        
+
         # 在【最后一列】新增 订单金额
         final_df["订单金额"] = final_df[qty_col] * final_df[price_col]
         st.success(f"✅ 订单金额计算完成：{qty_col} × {price_col}")
@@ -172,14 +177,29 @@ if sum_df is not None and detail_df is not None:
     col3.metric("总订单金额", round(total_amount, 2))
 
     # --------------------------
-    # 7. 导出文件
+    # 7. 导出文件（关键修改：强制订单号列为文本格式）
     # --------------------------
     st.subheader("7️⃣ 导出最终结果")
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"未匹配有效订单明细_{now}.xlsx"
 
+    # 关键步骤1：将订单号列强制转为字符串（文本）
+    final_df[detail_order_col] = final_df[detail_order_col].astype(str)
+
+    # 关键步骤2：使用ExcelWriter设置单元格格式为文本
     with pd.ExcelWriter(filename, engine="openpyxl") as writer:
         final_df.to_excel(writer, sheet_name="有效未匹配数据", index=False)
+
+        # 获取工作表对象，设置订单号列的格式为文本
+        worksheet = writer.sheets["有效未匹配数据"]
+        # 找到订单号列的列索引（A=1, B=2...）
+        order_col_idx = final_df.columns.get_loc(detail_order_col) + 1
+        # 设置整列格式为文本
+        from openpyxl.styles import NamedStyle
+
+        text_style = NamedStyle(name="text_style")
+        text_style.number_format = '@'  # @ 代表文本格式
+        worksheet.column_dimensions[chr(64 + order_col_idx)].style = text_style
 
     with open(filename, "rb") as f:
         st.download_button(
