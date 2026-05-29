@@ -9,7 +9,7 @@ import numpy as np
 # --------------------------
 st.set_page_config(page_title="未匹配订单明细提取工具", layout="wide")
 st.title("📊 未匹配订单明细提取 & 状态筛选 & 金额计算")
-st.markdown("功能：从明细表中提取**未在汇总表中出现**的订单明细 → 剔除无效状态 → 计算订单金额 → 导出结果")
+st.markdown("功能：从明细表中提取**未在报送表中出现**的订单明细 → 剔除无效状态 → 计算订单金额 → 导出结果")
 
 # --------------------------
 # 工具函数
@@ -47,7 +47,7 @@ st.subheader("1️⃣ 上传文件")
 col1, col2 = st.columns(2)
 
 with col1:
-    sum_file = st.file_uploader("上传【订单汇总表】", type=["xlsx", "xls"])
+    sum_file = st.file_uploader("上传【订单报送表】", type=["xlsx", "xls"])
 with col2:
     detail_file = st.file_uploader("上传【订单明细表】", type=["xlsx", "xls"])
 
@@ -56,7 +56,7 @@ detail_df = None
 
 if sum_file:
     sum_df = pd.read_excel(sum_file)
-    st.success(f"✅ 汇总表已加载：{sum_df.shape[0]} 行")
+    st.success(f"✅ 报送表已加载：{sum_df.shape[0]} 行")
 
 if detail_file:
     detail_df = pd.read_excel(detail_file)
@@ -71,7 +71,7 @@ if sum_df is not None and detail_df is not None:
 
     with col1:
         sum_order_col = st.selectbox(
-            "汇总表订单号列",
+            "报送表订单号列",
             options=sum_df.columns.tolist(),
             index=sum_df.columns.tolist().index(find_order_column(sum_df)) if find_order_column(sum_df) in sum_df.columns else 0
         )
@@ -190,4 +190,4 @@ if sum_df is not None and detail_df is not None:
         )
 
 else:
-    st.info("请先上传 汇总表 + 明细表")
+    st.info("请先上传 报送表 + 明细表")
