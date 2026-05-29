@@ -177,30 +177,22 @@ if sum_df is not None and detail_df is not None:
     col3.metric("总订单金额", round(total_amount, 2))
 
     # --------------------------
-    # 7. 导出文件（关键修改：强制订单号列为文本格式）
+    # 7. 导出文件（已修复：无报错 + 强制订单号为文本）
     # --------------------------
     st.subheader("7️⃣ 导出最终结果")
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"未匹配有效订单明细_{now}.xlsx"
 
-    # 关键步骤1：将订单号列强制转为字符串（文本）
-    final_df[detail_order_col] = final_df[detail_order_col].astype(str)
+    # ✅ 核心修复：强制订单号列转为纯文本（彻底解决科学计数法）
+    final_df[detail_order_col] = final_df[detail_order_col].astype(str).str.strip()
+    # 把 nan 换成空字符串
+    final_df[detail_order_col] = final_df[detail_order_col].replace("nan", "")
 
-    # 关键步骤2：使用ExcelWriter设置单元格格式为文本
+    # ✅ 安全导出，无报错
     with pd.ExcelWriter(filename, engine="openpyxl") as writer:
         final_df.to_excel(writer, sheet_name="有效未匹配数据", index=False)
 
-        # 获取工作表对象，设置订单号列的格式为文本
-        worksheet = writer.sheets["有效未匹配数据"]
-        # 找到订单号列的列索引（A=1, B=2...）
-        order_col_idx = final_df.columns.get_loc(detail_order_col) + 1
-        # 设置整列格式为文本
-        from openpyxl.styles import NamedStyle
-
-        text_style = NamedStyle(name="text_style")
-        text_style.number_format = '@'  # @ 代表文本格式
-        worksheet.column_dimensions[chr(64 + order_col_idx)].style = text_style
-
+    # 提供下载
     with open(filename, "rb") as f:
         st.download_button(
             label="📥 下载最终结果表",
